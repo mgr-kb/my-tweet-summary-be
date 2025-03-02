@@ -1,8 +1,11 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import type { CreatePostData, Post, UpdatePostData } from "../models/post";
+import { and, eq, gte, lte } from "drizzle-orm";
+import { convertPostDates } from "../db";
+import { posts } from "../db/schema";
+import type { Post } from "../db/schema";
+import type { PostWithDates } from "../db/schema";
+import type { CreatePostData, UpdatePostData } from "../models/post";
 import { BaseRepository } from "./base";
-
-// TODO: drizzleを用いたDBアクセス
 
 /**
  * 投稿リポジトリクラス
@@ -17,54 +20,29 @@ export class PostRepository extends BaseRepository {
    * 投稿をIDで取得
    */
   async findById(id: number): Promise<Post | null> {
-    const row = await this.getOne<{
-      id: number;
-      user_id: string;
-      content: string;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }>(
-      "SELECT id, user_id, content, image_url, created_at, updated_at FROM posts WHERE id = ?",
-      [id],
-    );
+    const result = await this.drizzle
+      .select()
+      .from(posts)
+      .where(eq(posts.id, id))
+      .get();
 
-    if (!row) return null;
+    if (!result) return null;
 
-    return {
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      imageUrl: row.image_url || undefined,
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-      updatedAt: this.sqliteToDate(row.updated_at) || new Date(),
-    };
+    return convertPostDates(result);
   }
 
   /**
    * ユーザーの投稿を全て取得
    */
   async findByUserId(userId: string): Promise<Post[]> {
-    const rows = await this.getMany<{
-      id: number;
-      user_id: string;
-      content: string;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }>(
-      "SELECT id, user_id, content, image_url, created_at, updated_at FROM posts WHERE user_id = ? ORDER BY created_at DESC",
-      [userId],
-    );
+    const results = await this.drizzle
+      .select()
+      .from(posts)
+      .where(eq(posts.userId, userId))
+      .orderBy(posts.createdAt)
+      .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      imageUrl: row.image_url || undefined,
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-      updatedAt: this.sqliteToDate(row.updated_at) || new Date(),
-    }));
+    return results.map(convertPostDates);
   }
 
   /**
@@ -78,26 +56,20 @@ export class PostRepository extends BaseRepository {
     const startDateStr = this.dateToSqlite(startDate);
     const endDateStr = this.dateToSqlite(endDate);
 
-    const rows = await this.getMany<{
-      id: number;
-      user_id: string;
-      content: string;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }>(
-      "SELECT id, user_id, content, image_url, created_at, updated_at FROM posts WHERE user_id = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at DESC",
-      [userId, startDateStr, endDateStr],
-    );
+    const results = await this.drizzle
+      .select()
+      .from(posts)
+      .where(
+        and(
+          eq(posts.userId, userId),
+          gte(posts.createdAt, startDateStr),
+          lte(posts.createdAt, endDateStr),
+        ),
+      )
+      .orderBy(posts.createdAt)
+      .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      imageUrl: row.image_url || undefined,
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-      updatedAt: this.sqliteToDate(row.updated_at) || new Date(),
-    }));
+    return results.map(convertPostDates);
   }
 
   /**
@@ -107,19 +79,25 @@ export class PostRepository extends BaseRepository {
     const now = new Date();
     const nowStr = this.dateToSqlite(now);
 
-    const result = await this.execute(
-      "INSERT INTO posts (user_id, content, image_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-      [data.userId, data.content, data.imageUrl || null, nowStr, nowStr],
-    );
-
-    return {
-      id: Number(result.meta.last_row_id),
+    const insertData = {
       userId: data.userId,
       content: data.content,
-      imageUrl: data.imageUrl,
+      imageUrl: data.imageUrl || null,
+      createdAt: nowStr,
+      updatedAt: nowStr,
+    };
+
+    const result = await this.drizzle
+      .insert(posts)
+      .values(insertData)
+      .returning()
+      .get();
+
+    return {
+      ...result,
       createdAt: now,
       updatedAt: now,
-    };
+    } as PostWithDates;
   }
 
   /**
@@ -132,44 +110,44 @@ export class PostRepository extends BaseRepository {
     const now = new Date();
     const nowStr = this.dateToSqlite(now);
 
-    const updates: string[] = [];
-    const values: string[] = [];
+    const updateData: Partial<typeof posts.$inferInsert> = {
+      updatedAt: nowStr,
+    };
 
     if (data.content !== undefined) {
-      updates.push("content = ?");
-      values.push(data.content);
+      updateData.content = data.content;
     }
 
     if (data.imageUrl !== undefined) {
-      updates.push("image_url = ?");
-      values.push(data.imageUrl);
+      updateData.imageUrl = data.imageUrl;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length <= 1) {
       return post;
     }
 
-    updates.push("updated_at = ?");
-    values.push(nowStr);
-    values.push(id.toString());
-
-    await this.execute(
-      `UPDATE posts SET ${updates.join(", ")} WHERE id = ?`,
-      values,
-    );
+    const result = await this.drizzle
+      .update(posts)
+      .set(updateData)
+      .where(eq(posts.id, id))
+      .returning()
+      .get();
 
     return {
-      ...post,
-      ...data,
+      ...result,
       updatedAt: now,
-    };
+    } as PostWithDates;
   }
 
   /**
    * 投稿を削除
    */
   async delete(id: number): Promise<boolean> {
-    const result = await this.execute("DELETE FROM posts WHERE id = ?", [id]);
+    const result = await this.drizzle
+      .delete(posts)
+      .where(eq(posts.id, id))
+      .run();
+
     return result.meta.changes > 0;
   }
 }

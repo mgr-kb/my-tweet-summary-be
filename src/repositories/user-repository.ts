@@ -1,15 +1,17 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import type { CreateUserData, UpdateUserData, User } from "../models/user";
+import { eq } from "drizzle-orm";
+import { convertUserDates } from "../db";
+import { users } from "../db/schema";
+import type { User } from "../db/schema";
+import type { UserWithDates } from "../db/schema";
+import type { CreateUserData, UpdateUserData } from "../models/user";
 import { BaseRepository } from "./base";
-
-// TODO: drizzleを用いたDBアクセス
 
 /**
  * ユーザーリポジトリクラス
  */
 export class UserRepository extends BaseRepository {
-  // NOTE: Biome警告があるが、親クラスのコンストラクタを呼び出すために必要
-  // biome-ignore lint/complexity/noUselessConstructor: <explanation>
+  // biome-ignore lint/complexity/noUselessConstructor: 親クラスのコンストラクタを呼び出すために必要
   constructor(db: D1Database) {
     super(db);
   }
@@ -18,60 +20,30 @@ export class UserRepository extends BaseRepository {
    * ユーザーをIDで取得
    */
   async findById(id: string): Promise<User | null> {
-    const row = await this.getOne<{
-      id: string;
-      email: string;
-      name: string;
-      avatar_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }>(
-      `SELECT id, email, name, avatar_url, created_at, updated_at
-       FROM users
-       WHERE id = ?`,
-      [id],
-    );
+    const result = await this.drizzle
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .get();
 
-    if (!row) return null;
+    if (!result) return null;
 
-    return {
-      id: row.id,
-      email: row.email,
-      name: row.name,
-      avatarUrl: row.avatar_url || undefined,
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-      updatedAt: this.sqliteToDate(row.updated_at) || new Date(),
-    };
+    return convertUserDates(result);
   }
 
   /**
    * ユーザーをメールアドレスで取得
    */
   async findByEmail(email: string): Promise<User | null> {
-    const row = await this.getOne<{
-      id: string;
-      email: string;
-      name: string;
-      avatar_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }>(
-      `SELECT id, email, name, avatar_url, created_at, updated_at 
-       FROM users 
-       WHERE email = ?`,
-      [email],
-    );
+    const result = await this.drizzle
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .get();
 
-    if (!row) return null;
+    if (!result) return null;
 
-    return {
-      id: row.id,
-      email: row.email,
-      name: row.name,
-      avatarUrl: row.avatar_url || undefined,
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-      updatedAt: this.sqliteToDate(row.updated_at) || new Date(),
-    };
+    return convertUserDates(result);
   }
 
   /**
@@ -81,17 +53,22 @@ export class UserRepository extends BaseRepository {
     const now = new Date();
     const nowStr = this.dateToSqlite(now);
 
-    await this.execute(
-      `INSERT INTO users (id, email, name, avatar_url, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [data.id, data.email, data.name, data.avatarUrl || null, nowStr, nowStr],
-    );
+    const insertData = {
+      id: data.id,
+      email: data.email,
+      name: data.name,
+      avatarUrl: data.avatarUrl || null,
+      createdAt: nowStr,
+      updatedAt: nowStr,
+    };
+
+    await this.drizzle.insert(users).values(insertData).run();
 
     return {
-      ...data,
+      ...insertData,
       createdAt: now,
       updatedAt: now,
-    };
+    } as UserWithDates;
   }
 
   /**
@@ -104,31 +81,27 @@ export class UserRepository extends BaseRepository {
     const now = new Date();
     const nowStr = this.dateToSqlite(now);
 
-    const updates: string[] = [];
-    const values: string[] = [];
+    const updateData: Partial<typeof users.$inferInsert> = {
+      updatedAt: nowStr,
+    };
 
     if (data.name !== undefined) {
-      updates.push("name = ?");
-      values.push(data.name);
+      updateData.name = data.name;
     }
 
     if (data.avatarUrl !== undefined) {
-      updates.push("avatar_url = ?");
-      values.push(data.avatarUrl);
+      updateData.avatarUrl = data.avatarUrl;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length <= 1) {
       return user;
     }
 
-    updates.push("updated_at = ?");
-    values.push(nowStr);
-    values.push(id);
-
-    await this.execute(
-      `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
-      values,
-    );
+    await this.drizzle
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .run();
 
     return {
       ...user,
@@ -141,7 +114,11 @@ export class UserRepository extends BaseRepository {
    * ユーザーを削除
    */
   async delete(id: string): Promise<boolean> {
-    const result = await this.execute("DELETE FROM users WHERE id = ?", [id]);
+    const result = await this.drizzle
+      .delete(users)
+      .where(eq(users.id, id))
+      .run();
+
     return result.meta.changes > 0;
   }
 }

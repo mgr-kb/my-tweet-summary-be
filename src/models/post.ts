@@ -1,14 +1,9 @@
+import type { PostWithDates } from "../db/schema";
+
 /**
  * 投稿モデル
  */
-export interface Post {
-  id: number;
-  userId: string;
-  content: string;
-  imageUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type Post = PostWithDates;
 
 /**
  * 投稿作成用のデータ型
@@ -16,7 +11,7 @@ export interface Post {
 export interface CreatePostData {
   userId: string;
   content: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
 }
 
 /**
@@ -24,5 +19,5 @@ export interface CreatePostData {
  */
 export interface UpdatePostData {
   content?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
 }

@@ -1,14 +1,9 @@
+import type { UserWithDates } from "../db/schema";
+
 /**
  * ユーザーモデル
  */
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type User = UserWithDates;
 
 /**
  * ユーザー作成用のデータ型
@@ -17,7 +12,7 @@ export interface CreateUserData {
   id: string;
   email: string;
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }
 
 /**
@@ -25,5 +20,5 @@ export interface CreateUserData {
  */
 export interface UpdateUserData {
   name?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }

@@ -1,12 +1,12 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import type {
-  CreateSummaryData,
-  Summary,
-  SummaryType,
-} from "../models/summary";
+import { and, eq, gte, lte } from "drizzle-orm";
+import { convertSummaryDates } from "../db";
+import type { SummaryType } from "../db/schema";
+import { summaries } from "../db/schema";
+import type { Summary } from "../db/schema";
+import type { SummaryWithDates } from "../db/schema";
+import type { CreateSummaryData } from "../models/summary";
 import { BaseRepository } from "./base";
-
-// TODO: drizzleを用いたDBアクセス
 
 /**
  * 振り返りリポジトリクラス
@@ -21,58 +21,29 @@ export class SummaryRepository extends BaseRepository {
    * 振り返りをIDで取得
    */
   async findById(id: number): Promise<Summary | null> {
-    const row = await this.getOne<{
-      id: number;
-      user_id: string;
-      content: string;
-      type: SummaryType;
-      start_date: string;
-      end_date: string;
-      created_at: string;
-    }>(
-      "SELECT id, user_id, content, type, start_date, end_date, created_at FROM summaries WHERE id = ?",
-      [id],
-    );
+    const result = await this.drizzle
+      .select()
+      .from(summaries)
+      .where(eq(summaries.id, id))
+      .get();
 
-    if (!row) return null;
+    if (!result) return null;
 
-    return {
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      type: row.type,
-      startDate: this.sqliteToDate(row.start_date) || new Date(),
-      endDate: this.sqliteToDate(row.end_date) || new Date(),
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-    };
+    return convertSummaryDates(result);
   }
 
   /**
    * ユーザーの振り返りを全て取得
    */
   async findByUserId(userId: string): Promise<Summary[]> {
-    const rows = await this.getMany<{
-      id: number;
-      user_id: string;
-      content: string;
-      type: SummaryType;
-      start_date: string;
-      end_date: string;
-      created_at: string;
-    }>(
-      "SELECT id, user_id, content, type, start_date, end_date, created_at FROM summaries WHERE user_id = ? ORDER BY created_at DESC",
-      [userId],
-    );
+    const results = await this.drizzle
+      .select()
+      .from(summaries)
+      .where(eq(summaries.userId, userId))
+      .orderBy(summaries.createdAt)
+      .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      type: row.type,
-      startDate: this.sqliteToDate(row.start_date) || new Date(),
-      endDate: this.sqliteToDate(row.end_date) || new Date(),
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-    }));
+    return results.map(convertSummaryDates);
   }
 
   /**
@@ -82,28 +53,14 @@ export class SummaryRepository extends BaseRepository {
     userId: string,
     type: SummaryType,
   ): Promise<Summary[]> {
-    const rows = await this.getMany<{
-      id: number;
-      user_id: string;
-      content: string;
-      type: SummaryType;
-      start_date: string;
-      end_date: string;
-      created_at: string;
-    }>(
-      "SELECT id, user_id, content, type, start_date, end_date, created_at FROM summaries WHERE user_id = ? AND type = ? ORDER BY created_at DESC",
-      [userId, type],
-    );
+    const results = await this.drizzle
+      .select()
+      .from(summaries)
+      .where(and(eq(summaries.userId, userId), eq(summaries.type, type)))
+      .orderBy(summaries.createdAt)
+      .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      type: row.type,
-      startDate: this.sqliteToDate(row.start_date) || new Date(),
-      endDate: this.sqliteToDate(row.end_date) || new Date(),
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-    }));
+    return results.map(convertSummaryDates);
   }
 
   /**
@@ -113,28 +70,19 @@ export class SummaryRepository extends BaseRepository {
     const startDateStr = this.dateToSqlite(startDate);
     const endDateStr = this.dateToSqlite(endDate);
 
-    const rows = await this.getMany<{
-      id: number;
-      user_id: string;
-      content: string;
-      type: SummaryType;
-      start_date: string;
-      end_date: string;
-      created_at: string;
-    }>(
-      "SELECT id, user_id, content, type, start_date, end_date, created_at FROM summaries WHERE start_date >= ? AND end_date <= ? ORDER BY created_at DESC",
-      [startDateStr, endDateStr],
-    );
+    const results = await this.drizzle
+      .select()
+      .from(summaries)
+      .where(
+        and(
+          gte(summaries.startDate, startDateStr),
+          lte(summaries.endDate, endDateStr),
+        ),
+      )
+      .orderBy(summaries.createdAt)
+      .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      content: row.content,
-      type: row.type,
-      startDate: this.sqliteToDate(row.start_date) || new Date(),
-      endDate: this.sqliteToDate(row.end_date) || new Date(),
-      createdAt: this.sqliteToDate(row.created_at) || new Date(),
-    }));
+    return results.map(convertSummaryDates);
   }
 
   /**
@@ -146,29 +94,38 @@ export class SummaryRepository extends BaseRepository {
     const startDateStr = this.dateToSqlite(data.startDate);
     const endDateStr = this.dateToSqlite(data.endDate);
 
-    const result = await this.execute(
-      "INSERT INTO summaries (user_id, content, type, start_date, end_date, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [data.userId, data.content, data.type, startDateStr, endDateStr, nowStr],
-    );
-
-    return {
-      id: Number(result.meta.last_row_id),
+    const insertData = {
       userId: data.userId,
       content: data.content,
       type: data.type,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      createdAt: nowStr,
+    };
+
+    const result = await this.drizzle
+      .insert(summaries)
+      .values(insertData)
+      .returning()
+      .get();
+
+    return {
+      ...result,
+      createdAt: now,
       startDate: data.startDate,
       endDate: data.endDate,
-      createdAt: now,
-    };
+    } as SummaryWithDates;
   }
 
   /**
    * 振り返りを削除
    */
   async delete(id: number): Promise<boolean> {
-    const result = await this.execute("DELETE FROM summaries WHERE id = ?", [
-      id,
-    ]);
+    const result = await this.drizzle
+      .delete(summaries)
+      .where(eq(summaries.id, id))
+      .run();
+
     return result.meta.changes > 0;
   }
 }

@@ -1,20 +1,14 @@
-/**
- * 振り返りの種類
- */
-export type SummaryType = "weekly" | "monthly";
+import type { SummaryType, SummaryWithDates } from "../db/schema";
 
 /**
  * 振り返りモデル
  */
-export interface Summary {
-  id: number;
-  userId: string;
-  content: string;
-  type: SummaryType;
-  startDate: Date;
-  endDate: Date;
-  createdAt: Date;
-}
+export type Summary = SummaryWithDates;
+
+/**
+ * 振り返りの種類
+ */
+export type { SummaryType } from "../db/schema";
 
 /**
  * 振り返り作成用のデータ型
