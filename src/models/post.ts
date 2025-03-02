@@ -1,9 +1,9 @@
-import type { PostWithDates } from "../db/schema";
+import type { Post as PostEntity } from "../db/schema";
 
 /**
  * 投稿モデル
  */
-export type Post = PostWithDates;
+export type Post = PostEntity;
 
 /**
  * 投稿作成用のデータ型

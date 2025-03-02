@@ -1,9 +1,9 @@
-import type { SummaryType, SummaryWithDates } from "../db/schema";
+import type { Summary as SummaryEntity, SummaryType } from "../db/schema";
 
 /**
  * 振り返りモデル
  */
-export type Summary = SummaryWithDates;
+export type Summary = SummaryEntity;
 
 /**
  * 振り返りの種類

@@ -1,9 +1,4 @@
-import {
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-} from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * ユーザーテーブルスキーマ
@@ -60,21 +55,3 @@ export type NewPost = typeof posts.$inferInsert;
 
 export type Summary = typeof summaries.$inferSelect;
 export type NewSummary = typeof summaries.$inferInsert;
-
-// 型変換ヘルパー
-export interface UserWithDates extends Omit<User, "createdAt" | "updatedAt"> {
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PostWithDates extends Omit<Post, "createdAt" | "updatedAt"> {
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface SummaryWithDates
-  extends Omit<Summary, "createdAt" | "startDate" | "endDate"> {
-  createdAt: Date;
-  startDate: Date;
-  endDate: Date;
-}

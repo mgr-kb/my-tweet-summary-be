@@ -1,10 +1,8 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { and, eq, gte, lte } from "drizzle-orm";
-import { convertSummaryDates } from "../db";
 import type { SummaryType } from "../db/schema";
 import { summaries } from "../db/schema";
 import type { Summary } from "../db/schema";
-import type { SummaryWithDates } from "../db/schema";
 import type { CreateSummaryData } from "../models/summary";
 import { BaseRepository } from "./base";
 
@@ -29,7 +27,7 @@ export class SummaryRepository extends BaseRepository {
 
     if (!result) return null;
 
-    return convertSummaryDates(result);
+    return result;
   }
 
   /**
@@ -43,7 +41,7 @@ export class SummaryRepository extends BaseRepository {
       .orderBy(summaries.createdAt)
       .all();
 
-    return results.map(convertSummaryDates);
+    return results;
   }
 
   /**
@@ -60,7 +58,7 @@ export class SummaryRepository extends BaseRepository {
       .orderBy(summaries.createdAt)
       .all();
 
-    return results.map(convertSummaryDates);
+    return results;
   }
 
   /**
@@ -82,7 +80,7 @@ export class SummaryRepository extends BaseRepository {
       .orderBy(summaries.createdAt)
       .all();
 
-    return results.map(convertSummaryDates);
+    return results;
   }
 
   /**
@@ -109,12 +107,7 @@ export class SummaryRepository extends BaseRepository {
       .returning()
       .get();
 
-    return {
-      ...result,
-      createdAt: now,
-      startDate: data.startDate,
-      endDate: data.endDate,
-    } as SummaryWithDates;
+    return result;
   }
 
   /**

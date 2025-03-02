@@ -1,9 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { eq } from "drizzle-orm";
-import { convertUserDates } from "../db";
 import { users } from "../db/schema";
 import type { User } from "../db/schema";
-import type { UserWithDates } from "../db/schema";
 import type { CreateUserData, UpdateUserData } from "../models/user";
 import { BaseRepository } from "./base";
 
@@ -28,7 +26,7 @@ export class UserRepository extends BaseRepository {
 
     if (!result) return null;
 
-    return convertUserDates(result);
+    return result;
   }
 
   /**
@@ -43,7 +41,7 @@ export class UserRepository extends BaseRepository {
 
     if (!result) return null;
 
-    return convertUserDates(result);
+    return result;
   }
 
   /**
@@ -64,11 +62,7 @@ export class UserRepository extends BaseRepository {
 
     await this.drizzle.insert(users).values(insertData).run();
 
-    return {
-      ...insertData,
-      createdAt: now,
-      updatedAt: now,
-    } as UserWithDates;
+    return insertData;
   }
 
   /**
@@ -103,11 +97,7 @@ export class UserRepository extends BaseRepository {
       .where(eq(users.id, id))
       .run();
 
-    return {
-      ...user,
-      ...data,
-      updatedAt: now,
-    };
+    return user;
   }
 
   /**

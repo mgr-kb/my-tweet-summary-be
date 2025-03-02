@@ -1,9 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { and, eq, gte, lte } from "drizzle-orm";
-import { convertPostDates } from "../db";
 import { posts } from "../db/schema";
 import type { Post } from "../db/schema";
-import type { PostWithDates } from "../db/schema";
 import type { CreatePostData, UpdatePostData } from "../models/post";
 import { BaseRepository } from "./base";
 
@@ -28,7 +26,7 @@ export class PostRepository extends BaseRepository {
 
     if (!result) return null;
 
-    return convertPostDates(result);
+    return result;
   }
 
   /**
@@ -42,7 +40,7 @@ export class PostRepository extends BaseRepository {
       .orderBy(posts.createdAt)
       .all();
 
-    return results.map(convertPostDates);
+    return results;
   }
 
   /**
@@ -69,7 +67,7 @@ export class PostRepository extends BaseRepository {
       .orderBy(posts.createdAt)
       .all();
 
-    return results.map(convertPostDates);
+    return results;
   }
 
   /**
@@ -93,11 +91,7 @@ export class PostRepository extends BaseRepository {
       .returning()
       .get();
 
-    return {
-      ...result,
-      createdAt: now,
-      updatedAt: now,
-    } as PostWithDates;
+    return result;
   }
 
   /**
@@ -133,10 +127,7 @@ export class PostRepository extends BaseRepository {
       .returning()
       .get();
 
-    return {
-      ...result,
-      updatedAt: now,
-    } as PostWithDates;
+    return result;
   }
 
   /**

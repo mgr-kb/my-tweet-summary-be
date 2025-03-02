@@ -1,9 +1,9 @@
-import type { UserWithDates } from "../db/schema";
+import type { User as UserEntity } from "../db/schema";
 
 /**
  * ユーザーモデル
  */
-export type User = UserWithDates;
+export type User = UserEntity;
 
 /**
  * ユーザー作成用のデータ型
