@@ -5,7 +5,11 @@
     "deploy": "wrangler deploy --minify",
     "lint": "biome lint src/",
     "format": "biome format src/",
-    "format:fix": "biome check --write src/"
+    "format:fix": "biome check --write src/",
+    "generate": "drizzle-kit generate",
+    "local:migration": "wrangler d1 migrations apply tweet-summary-db --local",
+    "local:seed": "wrangler d1 execute tweet-summary-db --file=drizzle/local_seed.sql",
+    "remote:migration": "wrangler d1 migrations apply tweet-summary-db --remote"
   },
   "dependencies": {
     "@clerk/backend": "^1.24.3",

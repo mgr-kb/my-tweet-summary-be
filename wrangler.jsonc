@@ -17,7 +17,8 @@
     {
       "binding": "DB",
       "database_name": "tweet-summary-db",
-      "database_id": "b25b39f9-4632-4464-8cad-4f7f5e5f35f3"
+      "database_id": "b25b39f9-4632-4464-8cad-4f7f5e5f35f3",
+      "migrations_dir": "drizzle"
     }
   ],
   "observability": {
