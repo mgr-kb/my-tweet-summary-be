@@ -1,6 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import type { CreatePostData, Post, UpdatePostData } from "../models/post";
 import { PostRepository } from "../repositories/post-repository";
+import { AppError } from "../utils/errors";
 
 /**
  * 投稿サービスクラス
@@ -62,7 +63,10 @@ export class PostService {
 
     // 投稿の所有者チェック
     if (post.userId !== userId) {
-      throw new Error("投稿の更新権限がありません");
+      throw new AppError("投稿の更新権限がありません", 403, {
+        userId,
+        postUserId: post.userId,
+      });
     }
 
     return this.repository.update(id, data);
@@ -82,7 +86,10 @@ export class PostService {
 
     // 投稿の所有者チェック
     if (post.userId !== userId) {
-      throw new Error("投稿の削除権限がありません");
+      throw new AppError("投稿の更新権限がありません", 403, {
+        userId,
+        postUserId: post.userId,
+      });
     }
 
     return this.repository.delete(id);

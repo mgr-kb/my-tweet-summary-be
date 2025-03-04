@@ -1,6 +1,7 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import type { CreateUserData, UpdateUserData, User } from "../models/user";
 import { UserRepository } from "../repositories/user-repository";
+import { AppError } from "../utils/errors";
 
 /**
  * ユーザーサービスクラス
@@ -38,9 +39,8 @@ export class UserService {
         avatarUrl: data.avatarUrl,
       };
       const updatedUser = await this.repository.update(data.id, updateData);
-      // FIXME: nullの場合はエラーを返すが、任意のカスタムエラーを返すよう修正が必要
       if (!updatedUser) {
-        throw new Error("Failed to update user");
+        throw new AppError("ユーザーの更新に失敗しました", 500);
       }
       return updatedUser;
     }
