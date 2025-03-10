@@ -12,6 +12,13 @@ export type Bindings = {
   CLERK_SECRET_KEY: string;
   ENVIRONMENT: string;
 };
+export type ErrorResponse = {
+  error: {
+    message: string;
+    status: number;
+    data?: unknown;
+  };
+};
 
 // メインアプリケーション
 const app = new Hono<{ Bindings: Bindings }>();
@@ -21,7 +28,6 @@ app.onError((err, c) => {
     const error = createErrorFromHTTPException(err);
     return c.json(
       {
-        success: false,
         error: {
           message: error.message,
           status: error.statusCode,
@@ -35,7 +41,6 @@ app.onError((err, c) => {
   if (err instanceof AppError) {
     return c.json(
       {
-        success: false,
         error: {
           message: err.message,
           status: err.statusCode,
@@ -48,7 +53,6 @@ app.onError((err, c) => {
 
   return c.json(
     {
-      success: false,
       error: {
         message:
           c.env.ENVIRONMENT === "production"
